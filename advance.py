@@ -33,4 +33,4 @@ class SmartEquationCSP:
         # کوچکترین دامنه
         min_domain = min([len(domains[i]) for i in unassigned])
         candidates = [i for i in unassigned if len(domains[i]) == min_domain]
-        return candidates[0]  # فقط اولی را انتخاب می‌کنیم (می‌توان تصادفی هم انتخاب کرد)
+        return candidates[0]  # فقط اولی را انتخاب می‌کنیم
