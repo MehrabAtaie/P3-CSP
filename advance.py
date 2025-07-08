@@ -13,8 +13,7 @@ class SmartEquationCSP:
             return False
         left, right = eq_str.split('=')
         if not left or not right:
-            return Fals
-            e
+            return False
         operators = set('+-*/')
         if eq_str[0] in operators or eq_str[-1] in operators:
             return False
