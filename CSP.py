@@ -50,7 +50,3 @@ class SimpleEquationCSP:
         self.backtrack([])
         return self.result
 
-# مثال تست
-chars = ['2', '7', '2', '2', '4', '5', '4', '+', '-', '=']
-solver = SimpleEquationCSP(chars)
-print(solver.solve())
