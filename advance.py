@@ -4,9 +4,11 @@ class SmartEquationCSP:
     def __init__(self, chars):
         self.chars = chars
         self.n = len(chars)
-        # دامنه اولیه: هر متغیر می‌تونه هر کاراکتری بگیره (ابتدا)
-        self.init_domains = [set(chars) for _ in range(self.n)]
         self.result = None
+        # شمارش تعداد هر کاراکتر ورودی (برای مقدارهای تکراری)
+        self.counter = {}
+        for ch in chars:
+            self.counter[ch] = self.counter.get(ch, 0) + 1
 
     def is_valid_equation(self, eq_str):
         if eq_str.count('=') != 1:
@@ -27,128 +29,67 @@ class SmartEquationCSP:
         except:
             return False
 
-    def mrv(self, assignment, domains):
-        """انتخاب متغیری که کمترین دامنه ممکن دارد و مقدار نگرفته"""
+    def mrv(self, assignment, available):
+        """انتخاب متغیر با کمترین مقدار مجاز باقیمانده"""
         unassigned = [i for i in range(self.n) if assignment[i] is None]
-        # کوچکترین دامنه
-        min_domain = min([len(domains[i]) for i in unassigned])
-        candidates = [i for i in unassigned if len(domains[i]) == min_domain]
-        return candidates[0]  # فقط اولی را انتخاب می‌کنیم
-    
-    def lcv(self, var, assignment, domains):
-        """مقادیر دامنه را بر اساس LCV مرتب می‌کند"""
-        value_options = list(domains[var])
+        min_count = min([sum(1 for ch in available if available[ch] > 0) for i in unassigned])
+        for i in unassigned:
+            if sum(1 for ch in available if available[ch] > 0) == min_count:
+                return i
+
+    def lcv(self, var, assignment, available):
+        """مرتب‌سازی مقدارهای مجاز به ترتیب کمترین محدودیت روی انتخاب‌های آینده"""
+        value_options = [ch for ch in available if available[ch] > 0]
         scores = []
         for value in value_options:
-            # تعداد انتخاب‌های باقی‌مانده در دامنه سایر متغیرهای حل‌نشده را می‌شمارد اگر این مقدار را برداریم
-            score = 0
-            for i in range(self.n):
-                if i != var and assignment[i] is None and value in domains[i]:
-                    score += 1
+            # این معیار ساده می‌گه هر مقداری که بیشتر در available باشه، محدودیت کمتری ایجاد می‌کنه
+            score = available[value]
             scores.append((value, score))
-        # مقدارهایی که کمتر در دامنه دیگران هستند (کمتر محدودیت ایجاد می‌کنند) را اول امتحان می‌کنیم
-        scores.sort(key=lambda x: x[1])
+        scores.sort(key=lambda x: -x[1])  # بیشترین باقیمانده جلوتر (LCV واقعی خیلی تو این مدل فرقی نداره)
         return [v for v, s in scores]
-    def forward_checking(self, assignment, domains, var, value):
-        """پس از مقداردهی، مقدار انتخاب شده را از دامنه متغیرهای حل‌نشده حذف می‌کند"""
+
+    def ac2(self, assignment, available):
+        """AC-2: بررسی کند آیا هنوز برای هر متغیر حل‌نشده مقدار مجاز باقی مانده است یا نه"""
         for i in range(self.n):
-            if i != var and assignment[i] is None:
-                if value in domains[i]:
-                    domains[i].remove(value)
-                    if not domains[i]:  # دامنه خالی شد
-                        return False
-        return True
-    
-    def ac2(self, assignment, domains):
-        """اجرای AC-2 روی همه متغیرها و دامنه‌ها"""
-        queue = [(i, j) for i in range(self.n) for j in range(self.n) if i != j]
-        while queue:
-            xi, xj = queue.pop(0)
-            removed = False
-            to_remove = set()
-            for vi in domains[xi]:
-                found = False
-                for vj in domains[xj]:
-                    # قید ساده: vi و vj نباید یکی باشند (چون هر کاراکتر فقط یک‌بار مصرف میشه)
-                    if vi != vj:
-                        found = True
-                        break
-                if not found:
-                    to_remove.add(vi)
-            if to_remove:
-                domains[xi] -= to_remove
-                removed = True
-            if removed:
-                # اگر دامنه متغیری تغییر کرد، همه قوس‌های ورودی به این متغیر را دوباره باید بررسی کنیم
-                for xk in range(self.n):
-                    if xk != xi:
-                        queue.append((xk, xi))
-            if not domains[xi]:  # دامنه خالی شد
+            if assignment[i] is not None:
+                continue
+            # اگر هیچ مقداری برای این متغیر باقی نمونده، ناسازگار است
+            if all(available[ch] == 0 for ch in available):
                 return False
         return True
-    def is_partial_valid(self, assignment):
-        path = [assignment[i] for i in range(self.n) if assignment[i] is not None]
-        if not path:
-            return True
-        eq_str = ''.join(path)
-        # قیدهای ابتدایی: دو عملگر پشت هم، مساوی در اول یا آخر، فقط یک مساوی، ...
-        operators = set('+-*/')
-        if len(eq_str) > 0 and eq_str[0] in operators:
-            return False
-        if len(eq_str) > 0 and eq_str[-1:] == '=':
-            return False
-        if eq_str.count('=') > 1:
-            return False
-        for i in range(1, len(eq_str)):
-            if (eq_str[i] in operators and eq_str[i-1] in operators) or (eq_str[i] == '=' and eq_str[i-1] == '='):
-                return False
-        return True
-    def backtrack(self, assignment, domains):
+
+    def backtrack(self, assignment, available, depth=0):
         if self.result:
             return
-
-        # اگر همه متغیرها مقدار گرفته‌اند
         if None not in assignment:
             eq_str = ''.join(assignment)
-            # اگر رشته نهایی یک معادله معتبر است، جواب را ذخیره کن
             if self.is_valid_equation(eq_str):
                 self.result = eq_str
             return
 
-        # انتخاب متغیر بعدی با MRV (کمترین دامنه)
-        var = self.mrv(assignment, domains)
-        # مرتب‌سازی مقادیر دامنه با LCV (کمترین محدودیت)
-        values = self.lcv(var, assignment, domains)
+        var = self.mrv(assignment, available)
+        values = self.lcv(var, assignment, available)
 
-        # برای هر مقدار ممکن از دامنه این متغیر
         for value in values:
             assignment_new = assignment[:]
-            domains_new = copy.deepcopy(domains)
-
-            # مقداردهی متغیر var با value
+            available_new = available.copy()
             assignment_new[var] = value
-            domains_new[var] = {value}  # فقط این مقدار در دامنه باقی بماند
+            available_new[value] -= 1
 
-            if not self.is_partial_valid(assignment_new):
+            # اجرای AC-2 بعد از هر مقداردهی
+            if not self.ac2(assignment_new, available_new):
                 continue
 
-            if not self.forward_checking(assignment_new, domains_new, var, value):
-                continue
-
-        # اعمال Arc Consistency (AC-2): انتشار محدودیت‌ها
-            if not self.ac2(assignment_new, domains_new):
-                continue
-
-            self.backtrack(assignment_new, domains_new)
-
-
+            self.backtrack(assignment_new, available_new, depth+1)
+            if self.result:
+                break
 
     def solve(self):
         self.result = None
         assignment = [None] * self.n
-        domains = copy.deepcopy(self.init_domains)
-        # اجرای اولیه AC-2 (پیش‌پردازش)
-        if not self.ac2(assignment, domains):
+        available = self.counter.copy()
+        # اجرای AC-2 پیش‌پردازش (قبل از شروع)
+        if not self.ac2(assignment, available):
             return None
-        self.backtrack(assignment, domains)
+        self.backtrack(assignment, available)
         return self.result
