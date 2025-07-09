@@ -86,3 +86,21 @@ class SmartEquationCSP:
             if not domains[xi]:  # دامنه خالی شد
                 return False
         return True
+    def is_partial_valid(self, assignment):
+        """بررسی قواعد نحوی روی تخصیص ناقص (اختیاری)"""
+        path = [assignment[i] for i in range(self.n) if assignment[i] is not None]
+        if not path:
+            return True
+        eq_str = ''.join(path)
+        # قیدهای ابتدایی: دو عملگر پشت هم، مساوی در اول یا آخر، فقط یک مساوی، ...
+        operators = set('+-*/')
+        if len(eq_str) > 0 and eq_str[0] in operators:
+            return False
+        if len(eq_str) > 0 and eq_str[-1:] == '=':
+            return False
+        if eq_str.count('=') > 1:
+            return False
+        for i in range(1, len(eq_str)):
+            if (eq_str[i] in operators and eq_str[i-1] in operators) or (eq_str[i] == '=' and eq_str[i-1] == '='):
+                return False
+        return True
