@@ -49,3 +49,12 @@ class SmartEquationCSP:
         # مقدارهایی که کمتر در دامنه دیگران هستند (کمتر محدودیت ایجاد می‌کنند) را اول امتحان می‌کنیم
         scores.sort(key=lambda x: x[1])
         return [v for v, s in scores]
+    def forward_checking(self, assignment, domains, var, value):
+        """پس از مقداردهی، مقدار انتخاب شده را از دامنه متغیرهای حل‌نشده حذف می‌کند"""
+        for i in range(self.n):
+            if i != var and assignment[i] is None:
+                if value in domains[i]:
+                    domains[i].remove(value)
+                    if not domains[i]:  # دامنه خالی شد
+                        return False
+        return True
