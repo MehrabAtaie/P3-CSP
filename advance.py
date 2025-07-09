@@ -87,7 +87,6 @@ class SmartEquationCSP:
                 return False
         return True
     def is_partial_valid(self, assignment):
-        """بررسی قواعد نحوی روی تخصیص ناقص (اختیاری)"""
         path = [assignment[i] for i in range(self.n) if assignment[i] is not None]
         if not path:
             return True
@@ -104,3 +103,52 @@ class SmartEquationCSP:
             if (eq_str[i] in operators and eq_str[i-1] in operators) or (eq_str[i] == '=' and eq_str[i-1] == '='):
                 return False
         return True
+    def backtrack(self, assignment, domains):
+        if self.result:
+            return
+
+        # اگر همه متغیرها مقدار گرفته‌اند
+        if None not in assignment:
+            eq_str = ''.join(assignment)
+            # اگر رشته نهایی یک معادله معتبر است، جواب را ذخیره کن
+            if self.is_valid_equation(eq_str):
+                self.result = eq_str
+            return
+
+        # انتخاب متغیر بعدی با MRV (کمترین دامنه)
+        var = self.mrv(assignment, domains)
+        # مرتب‌سازی مقادیر دامنه با LCV (کمترین محدودیت)
+        values = self.lcv(var, assignment, domains)
+
+        # برای هر مقدار ممکن از دامنه این متغیر
+        for value in values:
+            assignment_new = assignment[:]
+            domains_new = copy.deepcopy(domains)
+
+            # مقداردهی متغیر var با value
+            assignment_new[var] = value
+            domains_new[var] = {value}  # فقط این مقدار در دامنه باقی بماند
+
+            if not self.is_partial_valid(assignment_new):
+                continue
+
+            if not self.forward_checking(assignment_new, domains_new, var, value):
+                continue
+
+        # اعمال Arc Consistency (AC-2): انتشار محدودیت‌ها
+            if not self.ac2(assignment_new, domains_new):
+                continue
+
+            self.backtrack(assignment_new, domains_new)
+
+
+
+    def solve(self):
+        self.result = None
+        assignment = [None] * self.n
+        domains = copy.deepcopy(self.init_domains)
+        # اجرای اولیه AC-2 (پیش‌پردازش)
+        if not self.ac2(assignment, domains):
+            return None
+        self.backtrack(assignment, domains)
+        return self.result
