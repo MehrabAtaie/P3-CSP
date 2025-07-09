@@ -58,3 +58,31 @@ class SmartEquationCSP:
                     if not domains[i]:  # دامنه خالی شد
                         return False
         return True
+    
+    def ac2(self, assignment, domains):
+        """اجرای AC-2 روی همه متغیرها و دامنه‌ها"""
+        queue = [(i, j) for i in range(self.n) for j in range(self.n) if i != j]
+        while queue:
+            xi, xj = queue.pop(0)
+            removed = False
+            to_remove = set()
+            for vi in domains[xi]:
+                found = False
+                for vj in domains[xj]:
+                    # قید ساده: vi و vj نباید یکی باشند (چون هر کاراکتر فقط یک‌بار مصرف میشه)
+                    if vi != vj:
+                        found = True
+                        break
+                if not found:
+                    to_remove.add(vi)
+            if to_remove:
+                domains[xi] -= to_remove
+                removed = True
+            if removed:
+                # اگر دامنه متغیری تغییر کرد، همه قوس‌های ورودی به این متغیر را دوباره باید بررسی کنیم
+                for xk in range(self.n):
+                    if xk != xi:
+                        queue.append((xk, xi))
+            if not domains[xi]:  # دامنه خالی شد
+                return False
+        return True
