@@ -34,3 +34,18 @@ class SmartEquationCSP:
         min_domain = min([len(domains[i]) for i in unassigned])
         candidates = [i for i in unassigned if len(domains[i]) == min_domain]
         return candidates[0]  # فقط اولی را انتخاب می‌کنیم
+    
+    def lcv(self, var, assignment, domains):
+        """مقادیر دامنه را بر اساس LCV مرتب می‌کند"""
+        value_options = list(domains[var])
+        scores = []
+        for value in value_options:
+            # تعداد انتخاب‌های باقی‌مانده در دامنه سایر متغیرهای حل‌نشده را می‌شمارد اگر این مقدار را برداریم
+            score = 0
+            for i in range(self.n):
+                if i != var and assignment[i] is None and value in domains[i]:
+                    score += 1
+            scores.append((value, score))
+        # مقدارهایی که کمتر در دامنه دیگران هستند (کمتر محدودیت ایجاد می‌کنند) را اول امتحان می‌کنیم
+        scores.sort(key=lambda x: x[1])
+        return [v for v, s in scores]
