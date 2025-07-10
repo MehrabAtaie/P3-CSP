@@ -6,7 +6,7 @@ if __name__ == "__main__":
     chars = eval(inp)
 
     simple_solver = SimpleEquationCSP(chars)
+    print("جواب ساده:","\n", simple_solver.solve())
+    
     advanced_solver = SmartEquationCSP(chars)
-
-    print(simple_solver.solve())
-    print("جواب پیشرفته:", advanced_solver.solve())
+    print("جواب پیشرفته:", "\n", advanced_solver.solve())

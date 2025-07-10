@@ -29,6 +29,34 @@ class SmartEquationCSP:
         except:
             return False
 
+    def is_partial_valid(self, assignment):
+        eq_str = ''.join([a for a in assignment if a is not None])
+        operators = '+-*/'
+        if not eq_str:
+            return True
+
+        # مساوی نباید بیش از یک بار باشد
+        if eq_str.count('=') > 1:
+            return False
+
+        # اگر دو اپراتور یا دو مساوی یا مساوی و اپراتور پشت سر هم باشند، نامعتبر است
+        for i in range(1, len(eq_str)):
+            if (eq_str[i] in operators + '=' and eq_str[i-1] in operators + '='):
+                return False
+
+        # شروع رشته با اپراتور یا مساوی نباشد
+        if eq_str[0] in operators + '=':
+            return False
+
+        # اگر مساوی در رشته باشد:
+        if '=' in eq_str:
+            left, right = eq_str.split('=', 1)
+            # هیچ سمت نباید تهی باشد
+            if not left or not right:
+                return False
+
+        return True
+
     def mrv(self, assignment, available):
         """انتخاب متغیر با کمترین مقدار مجاز باقیمانده"""
         unassigned = [i for i in range(self.n) if assignment[i] is None]
@@ -45,7 +73,7 @@ class SmartEquationCSP:
             # این معیار ساده می‌گه هر مقداری که بیشتر در available باشه، محدودیت کمتری ایجاد می‌کنه
             score = available[value]
             scores.append((value, score))
-        scores.sort(key=lambda x: -x[1])  # بیشترین باقیمانده جلوتر (LCV واقعی خیلی تو این مدل فرقی نداره)
+        scores.sort(key=lambda x: -x[1])  # بیشترین باقیمانده جلوتر 
         return [v for v, s in scores]
 
     def ac2(self, assignment, available):
@@ -75,6 +103,10 @@ class SmartEquationCSP:
             available_new = available.copy()
             assignment_new[var] = value
             available_new[value] -= 1
+
+            # اضافه کردن قید هرس نحوی (Pruning)
+            if not self.is_partial_valid(assignment_new):
+                continue
 
             # اجرای AC-2 بعد از هر مقداردهی
             if not self.ac2(assignment_new, available_new):
