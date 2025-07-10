@@ -5,10 +5,10 @@ class SmartEquationCSP:
         self.chars = chars
         self.n = len(chars)
         self.result = None
-        # شمارش تعداد هر کاراکتر ورودی (برای مقدارهای تکراری)
         self.counter = {}
         for ch in chars:
             self.counter[ch] = self.counter.get(ch, 0) + 1
+
 
     def is_valid_equation(self, eq_str):
         if eq_str.count('=') != 1:
@@ -17,7 +17,7 @@ class SmartEquationCSP:
         if not left or not right:
             return False
         operators = set('+-*/')
-        if eq_str[0] in operators or eq_str[-1] in operators:
+        if eq_str[0] in operators or eq_str[-1] in operators or eq_str[0] == '=' or eq_str[-1] == '=':
             return False
         for i in range(1, len(eq_str)):
             if (eq_str[i] in operators and eq_str[i-1] in operators) or (eq_str[i] == '=' and eq_str[i-1] == '='):
@@ -29,34 +29,58 @@ class SmartEquationCSP:
         except:
             return False
 
+    def is_partial_valid(self, assignment):
+        eq_str = ''.join([a for a in assignment if a is not None])
+        operators = '+-*/'
+        if not eq_str:
+            return True
+
+        # بیش از یک مساوی مجاز نیست
+        if eq_str.count('=') > 1:
+            return False
+
+        # نباید با عملگر یا مساوی شروع شود
+        if eq_str[0] in operators + '=':
+            return False
+
+        # دو عملگر یا دو مساوی یا عملگر و مساوی نباید کنار هم باشند
+        for i in range(1, len(eq_str)):
+            if (eq_str[i] in operators + '=' and eq_str[i-1] in operators + '='):
+                return False
+
+        # اگر مساوی وجود دارد، نباید هر دو سمتش خالی باشد (اما مجاز است فقط یک سمت ناقص باشد)
+        if '=' in eq_str:
+            left, right = eq_str.split('=', 1)
+            if not left:
+                return False
+            # فقط اگر بعد مساوی شروع شد (یعنی سمت راست مساوی خالی باشد)، مسیر قطع شود.
+            # سمت راست می‌تواند ناقص باشد تا بعداً کامل شود.
+
+        return True
+
     def mrv(self, assignment, available):
-        """انتخاب متغیر با کمترین مقدار مجاز باقیمانده"""
-        unassigned = [i for i in range(self.n) if assignment[i] is None]
-        min_count = min([sum(1 for ch in available if available[ch] > 0) for i in unassigned])
-        for i in unassigned:
-            if sum(1 for ch in available if available[ch] > 0) == min_count:
+        for i in range(self.n):
+            if assignment[i] is None:
                 return i
+        return None
 
     def lcv(self, var, assignment, available):
-        """مرتب‌سازی مقدارهای مجاز به ترتیب کمترین محدودیت روی انتخاب‌های آینده"""
         value_options = [ch for ch in available if available[ch] > 0]
-        scores = []
-        for value in value_options:
-            # این معیار ساده می‌گه هر مقداری که بیشتر در available باشه، محدودیت کمتری ایجاد می‌کنه
-            score = available[value]
-            scores.append((value, score))
-        scores.sort(key=lambda x: -x[1])  # بیشترین باقیمانده جلوتر (LCV واقعی خیلی تو این مدل فرقی نداره)
-        return [v for v, s in scores]
+        return sorted(value_options, key=lambda ch: -available[ch])
 
     def ac2(self, assignment, available):
-        """AC-2: بررسی کند آیا هنوز برای هر متغیر حل‌نشده مقدار مجاز باقی مانده است یا نه"""
         for i in range(self.n):
             if assignment[i] is not None:
                 continue
-            # اگر هیچ مقداری برای این متغیر باقی نمونده، ناسازگار است
             if all(available[ch] == 0 for ch in available):
                 return False
         return True
+
+    def forward_checking(self, available, value):
+        if available[value] > 0:
+            available[value] -= 1
+            return True
+        return False
 
     def backtrack(self, assignment, available, depth=0):
         if self.result:
@@ -68,15 +92,23 @@ class SmartEquationCSP:
             return
 
         var = self.mrv(assignment, available)
+        if var is None:
+            return
         values = self.lcv(var, assignment, available)
-
         for value in values:
             assignment_new = assignment[:]
             available_new = available.copy()
             assignment_new[var] = value
-            available_new[value] -= 1
 
-            # اجرای AC-2 بعد از هر مقداردهی
+            # Forward checking
+            if not self.forward_checking(available_new, value):
+                continue
+
+            # Prune نحوی
+            if not self.is_partial_valid(assignment_new):
+                continue
+
+            # AC2
             if not self.ac2(assignment_new, available_new):
                 continue
 
@@ -88,7 +120,6 @@ class SmartEquationCSP:
         self.result = None
         assignment = [None] * self.n
         available = self.counter.copy()
-        # اجرای AC-2 پیش‌پردازش (قبل از شروع)
         if not self.ac2(assignment, available):
             return None
         self.backtrack(assignment, available)
